@@ -37,9 +37,11 @@ func (ws *winSvc) Execute(args []string, cr <-chan svc.ChangeRequest, change cha
 		case s := <-status:
 			switch s {
 			case Invalid:
+				elog.Error(6, fmt.Sprintf("%s: invalid state", ws.d.Name()))
 				errCode = 2
 				goto exit
 			case Stopped:
+				elog.Error(7, fmt.Sprintf("%s: stopped by application", ws.d.Name()))
 				goto exit
 			}
 		case c := <-cr:
@@ -55,7 +57,7 @@ func (ws *winSvc) Execute(args []string, cr <-chan svc.ChangeRequest, change cha
 	}
 
 exit:
-	elog.Info(5, fmt.Sprintf("%s: stopping", d.Name()))
+	elog.Info(5, fmt.Sprintf("%s: stopping", ws.d.Name()))
 	change <- svc.Status{State: svc.StopPending}
 	ws.d.Stop()
 	change <- svc.Status{State: svc.Stopped}
