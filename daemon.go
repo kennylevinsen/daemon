@@ -51,7 +51,7 @@ func Console(d Daemon) error {
 
 	d.SetCallback(cb)
 
-	if err := d.Start(os.Args[1:]); err != nil {
+	if err := d.Start(os.Args); err != nil {
 		return err
 	}
 
