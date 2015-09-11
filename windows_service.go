@@ -10,7 +10,25 @@ import (
 	"golang.org/x/sys/windows/svc/eventlog"
 )
 
-var elog debug.Log
+type winSvcer struct {
+	elog debug.Log
+}
+
+func (wsl *winSvcer) Fatal(v ...interface{}) {
+	wsl.elog.Error(0, fmt.Sprint(v...))
+}
+
+func (wsl *winSvcer) Fatalf(format string, v ...interface{}) {
+	wsl.elog.Error(0, fmt.Sprintf(format, v...))
+}
+
+func (wsl *winSvcer) Print(v ...interface{}) {
+	wsl.elog.Info(0, fmt.Sprint(v...))
+}
+
+func (wsl *winSvcer) Printf(format string, v ...interface{}) {
+	wsl.elog.Info(0, fmt.Sprintf(format, v...))
+}
 
 type winSvc struct {
 	d Daemon
@@ -18,15 +36,17 @@ type winSvc struct {
 
 func (ws *winSvc) Execute(args []string, cr <-chan svc.ChangeRequest, change chan<- svc.Status) (svcSpecific bool, errCode uint32) {
 	change <- svc.Status{State: svc.StartPending}
-	status := make(chan Status, 1)
+	status := make(chan Status, 2)
 	cb := func() {
 		status <- ws.d.Status()
 	}
 	ws.d.SetCallback(cb)
 
-	if err := ws.d.Start(args); err != nil {
+	Args = args
+
+	if err := ws.d.Start(); err != nil {
 		errCode = 1
-		elog.Error(3, fmt.Sprintf("%s: start failed: %v", ws.d.Name(), err))
+		Fatalf("%s: application start failed: %v", ws.d.Name(), err)
 		goto exit
 	}
 
@@ -37,11 +57,11 @@ func (ws *winSvc) Execute(args []string, cr <-chan svc.ChangeRequest, change cha
 		case s := <-status:
 			switch s {
 			case Invalid:
-				elog.Error(6, fmt.Sprintf("%s: invalid state", ws.d.Name()))
+				Fatalf("%s: invalid state", ws.d.Name())
 				errCode = 2
 				goto exit
 			case Stopped:
-				elog.Error(7, fmt.Sprintf("%s: stopped by application", ws.d.Name()))
+				Fatalf("%s: stopped by application", ws.d.Name())
 				goto exit
 			}
 		case c := <-cr:
@@ -51,13 +71,13 @@ func (ws *winSvc) Execute(args []string, cr <-chan svc.ChangeRequest, change cha
 			case svc.Stop, svc.Shutdown:
 				goto exit
 			default:
-				elog.Error(4, fmt.Sprintf("%s: unexpected control request: #%d", ws.d.Name(), c))
+				Fatalf("%s: unexpected control request: #%d", ws.d.Name(), c)
 			}
 		}
 	}
 
 exit:
-	elog.Info(5, fmt.Sprintf("%s: stopping", ws.d.Name()))
+	Printf("%s: stopping", ws.d.Name())
 	change <- svc.Status{State: svc.StopPending}
 	ws.d.Stop()
 	change <- svc.Status{State: svc.Stopped}
@@ -75,15 +95,18 @@ func Run(d Daemon) error {
 		return Console(d)
 	}
 
-	elog, err = eventlog.Open(d.Name())
+	elog, err := eventlog.Open(d.Name())
 	if err != nil {
 		return err
 	}
 
-	elog.Info(1, fmt.Sprintf("%s: starting", d.Name()))
+	wsl := &winSvcer{elog: elog}
+	SetLogger(wsl)
+
+	Printf("%s: starting", d.Name())
 	err = svc.Run(d.Name(), &winSvc{d: d})
 	if err != nil {
-		elog.Info(2, fmt.Sprintf("%s: service start failed: %v", d.Name(), err))
+		Fatalf("%s: service start failed: %v", d.Name(), err)
 		return err
 	}
 

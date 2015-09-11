@@ -2,12 +2,16 @@ package daemon
 
 import (
 	"errors"
+	golog "log"
 	"os"
 	"os/signal"
 )
 
 // Status describes the status of the daemon.
 type Status int
+
+// Arguments, exposed to work like os.Args.
+var Args []string
 
 // Daemon statuses.
 const (
@@ -25,7 +29,7 @@ type Daemon interface {
 	// should return an error if Start was unsuccessful. On error, the state of
 	// the daemon must not have changed. Calling Start on a started daemon must
 	// have no side-effects.
-	Start(args []string) error
+	Start() error
 
 	// Stop is called when the daemon should stop. Calling Stop on a stopped
 	// daemon must have no side-effects.
@@ -41,9 +45,11 @@ type Daemon interface {
 
 // Console is a basic console runner for daemons.
 func Console(d Daemon) error {
+	SetLogger(golog.New(os.Stderr, "", golog.LstdFlags))
+
 	sigint := make(chan os.Signal, 1)
 	signal.Notify(sigint, os.Interrupt)
-	status := make(chan Status, 1)
+	status := make(chan Status, 2)
 
 	cb := func() {
 		status <- d.Status()
@@ -51,7 +57,9 @@ func Console(d Daemon) error {
 
 	d.SetCallback(cb)
 
-	if err := d.Start(os.Args); err != nil {
+	Args = os.Args
+
+	if err := d.Start(); err != nil {
 		return err
 	}
 
