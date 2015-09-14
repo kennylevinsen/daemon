@@ -18,16 +18,8 @@ func (wsl *winSvcer) Fatal(v ...interface{}) {
 	wsl.elog.Error(0, fmt.Sprint(v...))
 }
 
-func (wsl *winSvcer) Fatalf(format string, v ...interface{}) {
-	wsl.elog.Error(0, fmt.Sprintf(format, v...))
-}
-
 func (wsl *winSvcer) Print(v ...interface{}) {
 	wsl.elog.Info(0, fmt.Sprint(v...))
-}
-
-func (wsl *winSvcer) Printf(format string, v ...interface{}) {
-	wsl.elog.Info(0, fmt.Sprintf(format, v...))
 }
 
 type winSvc struct {
